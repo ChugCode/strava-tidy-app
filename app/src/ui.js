@@ -158,6 +158,7 @@ function setupShare() {
   try { file = pickShareFile(current.outputText, current.fileName, current.mimeType, navigator); } catch { file = null; }
   current.shareFile = file;
   $('share-btn').hidden = !file;
+  $('share-note').hidden = true;
 }
 
 function download() {
@@ -173,10 +174,17 @@ function download() {
 
 async function share() {
   if (!current || !current.shareFile) return;
+  const note = $('share-note');
+  note.hidden = true;
   try {
     await navigator.share({ files: [current.shareFile], title: current.fileName });
   } catch (e) {
-    if (e && e.name !== 'AbortError') showError('Sharing failed: ' + (e && e.message ? e.message : e));
+    if (e && e.name === 'AbortError') return;
+    // Chrome only lets pages share a short list of file types, and the receiving app has to accept the file too.
+    note.textContent = e && e.name === 'NotAllowedError'
+      ? "Android wouldn't share this file type from the browser. Use Download, then upload it on the Strava website."
+      : 'Sharing failed: ' + (e && e.message ? e.message : e);
+    note.hidden = false;
   }
 }
 
