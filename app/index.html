@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Strava Tidy</title>
+  <meta name="description" content="Snap noisy GPS tracks to roads and paths, entirely on your device.">
+  <meta name="theme-color" content="#0f172a">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <h1>Strava Tidy</h1>
+    <p>Snap a noisy GPS run to the roads and paths you actually ran on. Runs entirely on your device.</p>
+  </header>
+
+  <main>
+    <section id="start" class="card" aria-labelledby="step1">
+      <h2 id="step1">1. Choose your GPX file</h2>
+      <p class="muted">Export it from Strava (activity page, ⋯ menu, Export GPX).</p>
+      <input id="file-input" type="file" accept=".gpx,application/gpx+xml,text/xml,application/xml" hidden>
+      <button id="choose-btn" class="btn primary" type="button">Choose GPX file</button>
+      <p class="muted drop-hint">or drop a .gpx file here</p>
+      <label class="option"><input id="rename-opt" type="checkbox"> Add "(tidied)" to the activity name</label>
+    </section>
+
+    <section id="progress" class="card" hidden aria-labelledby="progress-title">
+      <h2 id="progress-title" tabindex="-1">Tidying…</h2>
+      <p id="stage" role="status" aria-live="polite">Reading file…</p>
+      <progress id="bar" max="100" value="0" aria-label="Progress"></progress>
+      <button id="cancel-btn" class="btn" type="button">Cancel</button>
+    </section>
+
+    <section id="error" class="card error" hidden role="alert" aria-live="assertive">
+      <h2 id="error-title" tabindex="-1">Something went wrong</h2>
+      <p id="error-text"></p>
+      <button id="retry-btn" class="btn primary" type="button">Retry</button>
+      <button id="error-new-btn" class="btn" type="button">Choose another file</button>
+    </section>
+
+    <section id="result" hidden aria-labelledby="result-title">
+      <div class="card">
+        <h2 id="result-title" tabindex="-1">Tidied</h2>
+        <dl id="summary" class="summary"></dl>
+        <p id="off-note" class="note" hidden></p>
+        <p class="note">Timestamps and heart rate are untouched. Only positions changed.</p>
+      </div>
+
+      <div class="card map-card">
+        <div id="map" role="img" aria-label="Map showing the original track in red and the tidied track in blue"></div>
+        <p class="legend"><span class="sw raw"></span>Original <span class="sw tidy"></span>Tidied <span class="sw off"></span>Left unchanged</p>
+      </div>
+
+      <div class="card">
+        <h2>Splits</h2>
+        <div class="table-wrap">
+          <table id="splits">
+            <caption class="sr-only">Pace per kilometre, original and tidied (min/km)</caption>
+            <thead><tr><th scope="col">km</th><th scope="col">Original</th><th scope="col">Tidied</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card actions">
+        <button id="download-btn" class="btn primary" type="button">Download tidied GPX</button>
+        <button id="share-btn" class="btn" type="button" hidden>Share…</button>
+        <a id="strava-link" class="btn" href="https://www.strava.com/upload/select" target="_blank" rel="noopener">Open Strava upload page</a>
+        <button id="again-btn" class="btn" type="button">Tidy another file</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="vendor/leaflet/leaflet.js"></script>
+  <script type="module" src="src/ui.js"></script>
+</body>
+</html>

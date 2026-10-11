@@ -1,0 +1,8 @@
+node_modules/
+.claude/
+
+# Personal GPS data: real run files, their map extracts and generated reports.
+app/test/fixtures/
+prototype/compare_*.html
+prototype/report_*.txt
+*.gpx
