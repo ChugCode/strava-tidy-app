@@ -1,6 +1,7 @@
 {
   "name": "Strava Tidy",
   "short_name": "Tidy",
+  "id": "./",
   "description": "Snap noisy GPS tracks to roads and paths, on your device.",
   "display": "standalone",
   "start_url": "./",
@@ -42,14 +43,11 @@
         {
           "name": "activity",
           "accept": [
-            "application/vnd.garmin.tcx+xml",
             ".tcx",
-            "application/gpx+xml",
             ".gpx",
-            "text/xml",
-            "application/xml",
-            "application/octet-stream",
-            "text/plain"
+            ".xml",
+            "application/*",
+            "text/*"
           ]
         }
       ]

@@ -1,5 +1,5 @@
 // App-shell cache only. Map tiles and Overpass/OSM API responses are deliberately never cached here.
-const CACHE = 'strava-tidy-v2';
+const CACHE = 'strava-tidy-v3';
 const SHARED_CACHE = 'strava-tidy-shared'; // holds one file handed over by the Web Share Target POST
 const PRECACHE = [
   './',
