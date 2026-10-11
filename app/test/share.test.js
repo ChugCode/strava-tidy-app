@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
-import { outputFileName, pickShareFile, parseSharedFlag } from '../src/share.js';
+import { outputFileName, parseSharedFlag } from '../src/share.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 
@@ -13,19 +13,6 @@ test('outputFileName keeps the base name and uses the output extension', () => {
   assert.equal(outputFileName('a.b.tcx', '.tcx'), 'a.b-tidied.tcx');
   assert.equal(outputFileName('', '.gpx'), 'activity-tidied.gpx');
   assert.equal(outputFileName(undefined, '.tcx'), 'activity-tidied.tcx');
-});
-
-test('pickShareFile uses the real type, falls back to octet-stream, else null', () => {
-  const accepting = (types) => ({ canShare: ({ files }) => types.includes(files[0].type) });
-  const tcx = 'application/vnd.garmin.tcx+xml';
-  assert.equal(pickShareFile('x', 'a.tcx', tcx, accepting([tcx])).type, tcx);
-  const f = pickShareFile('x', 'a.tcx', tcx, accepting(['application/octet-stream']));
-  assert.equal(f.type, 'application/octet-stream');
-  assert.equal(f.name, 'a.tcx');
-  assert.equal(pickShareFile('x', 'a.tcx', tcx, accepting([])), null);
-  assert.equal(pickShareFile('x', 'a.tcx', tcx, {}), null);
-  assert.equal(pickShareFile('x', 'a.tcx', tcx, undefined), null);
-  assert.equal(pickShareFile('x', 'a.tcx', tcx, { canShare() { throw new Error('no'); } }), null);
 });
 
 test('parseSharedFlag', () => {

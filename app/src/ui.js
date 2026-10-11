@@ -1,6 +1,6 @@
 // Main-thread UI: file intake, worker orchestration, result rendering.
 import { formatPace, formatKm, formatMeters, formatDelta } from './format.js';
-import { outputFileName, pickShareFile, parseSharedFlag } from './share.js';
+import { outputFileName, parseSharedFlag } from './share.js';
 import { showTracks, invalidateMap } from './map-view.js';
 
 const $ = (id) => document.getElementById(id);
@@ -10,7 +10,7 @@ const focusTargets = { start: 'choose-btn', progress: 'progress-title', error: '
 let worker = null;
 let runToken = 0; // lets us ignore messages from a cancelled main-thread fallback run
 let lastJob = null; // { name, text, rename } for Retry
-let current = null; // { fileName, outputText, mimeType, shareFile } for download/share
+let current = null; // { fileName, outputText, mimeType } for download
 
 function show(name) {
   for (const [key, el] of Object.entries(panels)) el.hidden = key !== name;
@@ -99,7 +99,6 @@ function finish(job, msg) {
     renderSplits(summary.splits);
     show('result');
     renderMap(rawPoints, tidiedPoints);
-    setupShare();
   } catch (e) {
     showError('The result could not be displayed: ' + (e && e.message ? e.message : e));
   }
@@ -153,14 +152,6 @@ function renderMap(rawPoints, tidiedPoints) {
   showTracks($('map'), rawPoints.map((p) => [p.lat, p.lon]), tidiedPoints.map((p) => [p.lat, p.lon]), off);
 }
 
-function setupShare() {
-  let file = null;
-  try { file = pickShareFile(current.outputText, current.fileName, current.mimeType, navigator); } catch { file = null; }
-  current.shareFile = file;
-  $('share-btn').hidden = !file;
-  $('share-note').hidden = true;
-}
-
 function download() {
   const url = URL.createObjectURL(new Blob([current.outputText], { type: current.mimeType }));
   const a = document.createElement('a');
@@ -170,22 +161,6 @@ function download() {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 10000);
-}
-
-async function share() {
-  if (!current || !current.shareFile) return;
-  const note = $('share-note');
-  note.hidden = true;
-  try {
-    await navigator.share({ files: [current.shareFile], title: current.fileName });
-  } catch (e) {
-    if (e && e.name === 'AbortError') return;
-    // Chrome only lets pages share a short list of file types, and the receiving app has to accept the file too.
-    note.textContent = e && e.name === 'NotAllowedError'
-      ? "Android wouldn't share this file type from the browser. Use Download, then upload it on the Strava website."
-      : 'Sharing failed: ' + (e && e.message ? e.message : e);
-    note.hidden = false;
-  }
 }
 
 const SHARED_CACHE = 'strava-tidy-shared';
@@ -238,7 +213,6 @@ function init() {
   $('error-new-btn').addEventListener('click', reset);
   $('again-btn').addEventListener('click', reset);
   $('download-btn').addEventListener('click', download);
-  $('share-btn').addEventListener('click', share);
 
   setupTip();
 

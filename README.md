@@ -1,6 +1,6 @@
 # Strava Tidy
 
-A mobile-first, installable web app (PWA) that cleans up noisy GPS tracks from runs. You import a GPX or TCX file (exported from Strava or Google Health), the app snaps the track to the roads and paths you actually ran on, and you download or share the tidied file to upload to Strava as a new activity.
+A mobile-first, installable web app (PWA) that cleans up noisy GPS tracks from runs. You import a GPX or TCX file (exported from Strava or Google Health), the app snaps the track to the roads and paths you actually ran on, and you download the tidied file and upload it to Strava as a new activity.
 
 Everything runs in your browser or phone. There is no backend and no account. Plain JavaScript ES modules, no framework, no bundler, no npm runtime dependencies.
 
@@ -30,39 +30,38 @@ To regenerate the icons: `npm run icons` (writes PNGs to `app/icons/`).
 
 ## Deploy
 
-The `app/` folder is a static site. Upload or point a host at it:
+The `app/` folder is a static site. This repository deploys it to GitHub Pages with `.github/workflows/pages.yml`: every push to `main` runs the tests and publishes the app shell (no tests, scripts or fixtures). In the repository settings, set Pages → Source to **GitHub Actions**. The site is then at `https://<user>.github.io/<repo>/`.
 
-- **GitHub Pages**: publish the contents of `app/` (for example from a `gh-pages` branch or a Pages workflow with `app` as the artifact path).
-- **Netlify**: drag-and-drop the `app/` folder, or set the publish directory to `app`, with no build command.
-- **Cloudflare Pages**: set the build output directory to `app`, with no build command.
+Any other static host works too (Netlify, Cloudflare Pages: publish directory `app`, no build command). All paths are relative, so sub-paths are fine. The service worker and install prompt require HTTPS.
 
-All paths in the app are relative, so it also works from a sub-path such as `https://user.github.io/strava-tidy/`. The service worker and install prompt require HTTPS. Once deployed, open the URL on your phone and use "Add to Home Screen" (iOS Safari: Share, Add to Home Screen; Android Chrome: menu, Install app).
+## Using it (Android, from Google Health)
 
-## Using it with Strava
+This is the intended day-to-day workflow. Turn off Google Health's automatic upload to Strava first, so the untidied run never reaches Strava and there is nothing to delete later.
 
-1. On the Strava website, open the activity, click the three-dot menu (⋯), and choose **Export GPX**.
-2. Open Strava Tidy and choose that file. Optionally tick "Add (tidied) to the activity name".
-3. Wait for matching to finish, check the map, then tap **Download tidied file** (or **Share to Strava…** on phones that support it).
-4. Upload the tidied file at <https://www.strava.com/upload/select>.
+1. **Install the app once.** Open the site in Chrome and use menu → **Install app**. A plain "Add to Home screen" shortcut is not enough: Android only lists Strava Tidy as a share target when it is properly installed. If you installed an older version, remove it and install again.
+2. In Google Health, open the run, tap **Export** and choose **Strava Tidy** in the share list. The app opens and tidies the track automatically (it needs a connection to download map data).
+3. Check the map and the before/after distance and splits.
+4. Tap **Download tidied file**. It is saved to your Downloads folder as `exercise_tcx_file-tidied.tcx`.
+5. Open <https://www.strava.com/upload/select>, tap the upload button and choose the file. If Android's picker only shows photos and videos, open its menu (☰ or ⋮) and pick **Downloads**.
+
+If Strava Tidy does not appear in the share list, export the TCX to your phone instead, open the app and use **Choose GPX or TCX file**.
 
 Notes:
 
-- Strava may flag the upload as a duplicate of the original. Delete the original activity first if you want to replace it, or keep it and accept the duplicate warning.
-- Cadence is not included in Strava's GPX export, so a re-uploaded activity will not have cadence data. Heart rate and timestamps are preserved.
+- Only positions change. Timestamps, heart rate, cadence, altitude and the rest of the file are left alone. In a TCX file the running distance values (per point and per lap) are recalculated from the tidied path so the file stays consistent.
+- There is no share-to-Strava button: in testing, sharing the tidied TCX from the app failed with "Permission denied" (Chrome limits which file types a web page may share), so use Download and the Strava website upload.
+- Fully automatic upload to Strava is not possible from a static site: Strava's API needs a client secret, which means a server.
+- If a run already synced to Strava before you turned automatic upload off, delete that activity first, otherwise Strava flags the upload as a duplicate.
 
-## Using it from Google Health (Android)
+## Using it with a Strava export (GPX)
 
-1. Install Strava Tidy from Chrome (menu, Add to Home screen / Install app). Android only offers an app as a share target once it is installed.
-2. In Google Health, open the run and use Export. Choose the TCX file (`exercise_tcx_file.tcx`) and pick **Strava Tidy** in the share sheet.
-3. The app opens and tidies the track automatically. Review the map.
-4. Tap **Share to Strava…** and choose the Strava app, or tap **Download tidied file** and upload it at <https://www.strava.com/upload/select>.
-5. If the original activity already synced to Strava, delete it first. Otherwise Strava treats the upload as a duplicate.
+You can also tidy an activity that is already on Strava:
 
-Honest limits:
+1. On the Strava website, open the activity, click the three-dot menu (⋯) and choose **Export GPX**.
+2. Open Strava Tidy, choose the file, optionally tick "Add (tidied) to the activity name" (GPX only), then download the result.
+3. Delete the original activity on Strava, then upload the tidied file at <https://www.strava.com/upload/select>.
 
-- Share target and share-out behaviour depend on Android and Chrome, and on the Strava app accepting a TCX file shared from another app. If it does not, use the download and the Strava website upload page.
-- Fully automatic upload to Strava is not possible from a static site: Strava's API needs a client secret and a server.
-- TCX distances are recalculated from the tidied path; other fields are left as they were.
+Strava's GPX export has heart rate but no cadence, so a re-uploaded activity loses its cadence data. The Google Health TCX route above avoids this because the TCX is the original file.
 
 ## Known limits
 

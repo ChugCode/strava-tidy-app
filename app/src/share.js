@@ -6,21 +6,6 @@ export function outputFileName(originalName, extension) {
   return `${base}-tidied${extension}`;
 }
 
-/**
- * Returns a File that navigatorLike.canShare accepts, or null. Tries the real mime type first, then
- * application/octet-stream (some browsers refuse to share TCX by its own type).
- */
-export function pickShareFile(text, name, mimeType, navigatorLike) {
-  if (!navigatorLike || typeof navigatorLike.canShare !== 'function') return null;
-  for (const type of [mimeType, 'application/octet-stream']) {
-    try {
-      const file = new File([text], name, { type });
-      if (navigatorLike.canShare({ files: [file] })) return file;
-    } catch { /* try the next type */ }
-  }
-  return null;
-}
-
 /** True when the page was opened by the service worker after a Web Share Target POST. */
 export function parseSharedFlag(search) {
   try {

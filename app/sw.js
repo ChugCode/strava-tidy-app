@@ -1,5 +1,5 @@
 // App-shell cache only. Map tiles and Overpass/OSM API responses are deliberately never cached here.
-const CACHE = 'strava-tidy-v4';
+const CACHE = 'strava-tidy-v6';
 const SHARED_CACHE = 'strava-tidy-shared'; // holds one file handed over by the Web Share Target POST
 const PRECACHE = [
   './',
@@ -89,6 +89,16 @@ self.addEventListener('fetch', (event) => {
         .catch(() => caches.match('index.html')));
     return;
   }
+  // Network first, cache as the offline fallback: a cache-first script next to a fresh index.html
+  // (the first load after a deploy) would break the page until the second reload.
   event.respondWith(
-    caches.match(req).then((hit) => hit || fetch(req)));
+    fetch(req)
+      .then((res) => {
+        if (res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(req, copy));
+        }
+        return res;
+      })
+      .catch(() => caches.match(req)));
 });
