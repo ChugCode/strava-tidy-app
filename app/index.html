@@ -20,12 +20,13 @@
 
   <main>
     <section id="start" class="card" aria-labelledby="step1">
-      <h2 id="step1">1. Choose your GPX file</h2>
-      <p class="muted">Export it from Strava (activity page, ⋯ menu, Export GPX).</p>
-      <input id="file-input" type="file" accept=".gpx,application/gpx+xml,text/xml,application/xml" hidden>
-      <button id="choose-btn" class="btn primary" type="button">Choose GPX file</button>
-      <p class="muted drop-hint">or drop a .gpx file here</p>
-      <label class="option"><input id="rename-opt" type="checkbox"> Add "(tidied)" to the activity name</label>
+      <h2 id="step1">1. Choose a GPX or TCX file</h2>
+      <p class="muted">Export it from Strava (⋯ menu, Export GPX) or from Google Health (Export, TCX).</p>
+      <input id="file-input" type="file" accept=".gpx,.tcx,application/gpx+xml,application/vnd.garmin.tcx+xml,text/xml,application/xml,application/octet-stream" hidden>
+      <button id="choose-btn" class="btn primary" type="button">Choose GPX or TCX file</button>
+      <p class="muted drop-hint">or drop a .gpx or .tcx file here</p>
+      <label class="option"><input id="rename-opt" type="checkbox"> Add "(tidied)" to the activity name <span class="muted">(GPX only)</span></label>
+      <p id="install-tip" class="muted tip" hidden><span>Tip: install this app, then use Share/Export in Google Health and pick Strava Tidy.</span> <button id="tip-dismiss" class="link-btn" type="button">Dismiss</button></p>
     </section>
 
     <section id="progress" class="card" hidden aria-labelledby="progress-title">
@@ -47,6 +48,7 @@
         <h2 id="result-title" tabindex="-1">Tidied</h2>
         <dl id="summary" class="summary"></dl>
         <p id="off-note" class="note" hidden></p>
+        <p id="tcx-note" class="note" hidden>Distances in the file were recalculated from the tidied path.</p>
         <p class="note">Timestamps and heart rate are untouched. Only positions changed.</p>
       </div>
 
@@ -67,8 +69,8 @@
       </div>
 
       <div class="card actions">
-        <button id="download-btn" class="btn primary" type="button">Download tidied GPX</button>
-        <button id="share-btn" class="btn" type="button" hidden>Share…</button>
+        <button id="download-btn" class="btn primary" type="button">Download tidied file</button>
+        <button id="share-btn" class="btn" type="button" hidden>Share to Strava…</button>
         <a id="strava-link" class="btn" href="https://www.strava.com/upload/select" target="_blank" rel="noopener">Open Strava upload page</a>
         <button id="again-btn" class="btn" type="button">Tidy another file</button>
       </div>

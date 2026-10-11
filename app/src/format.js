@@ -14,8 +14,3 @@ export function formatDelta(m) {
   const r = Math.round(m);
   return `${r > 0 ? '+' : r < 0 ? '−' : '±'}${Math.abs(r)} m`;
 }
-
-export function tidiedFileName(name) {
-  const base = (name || 'activity.gpx').replace(/\.[^.\/\\]+$/, '') || 'activity';
-  return `${base}-tidied.gpx`;
-}

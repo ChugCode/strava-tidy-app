@@ -1,12 +1,12 @@
 # Strava Tidy
 
-A mobile-first, installable web app (PWA) that cleans up noisy GPS tracks from runs. You import a GPX file exported from Strava, the app snaps the track to the roads and paths you actually ran on, and you download or share the tidied GPX to upload to Strava as a new activity.
+A mobile-first, installable web app (PWA) that cleans up noisy GPS tracks from runs. You import a GPX or TCX file (exported from Strava or Google Health), the app snaps the track to the roads and paths you actually ran on, and you download or share the tidied file to upload to Strava as a new activity.
 
 Everything runs in your browser or phone. There is no backend and no account. Plain JavaScript ES modules, no framework, no bundler, no npm runtime dependencies.
 
 ## How it works
 
-1. The GPX is parsed and its bounding box is split into small cells.
+1. The GPX or TCX file is parsed and its bounding box is split into small cells.
 2. Road and path data for each cell is downloaded from OpenStreetMap: first the Overpass API (three public mirrors tried in order), then the OSM API map endpoint as a fallback. Parsed results are cached in IndexedDB for 30 days.
 3. The matcher snaps the track to the road/path network. Stretches that are not near any mapped way are left alone.
 4. Only `lat`/`lon` values are rewritten. Timestamps, elevation, heart rate and any other data stay byte-identical.
@@ -42,7 +42,7 @@ All paths in the app are relative, so it also works from a sub-path such as `htt
 
 1. On the Strava website, open the activity, click the three-dot menu (⋯), and choose **Export GPX**.
 2. Open Strava Tidy and choose that file. Optionally tick "Add (tidied) to the activity name".
-3. Wait for matching to finish, check the map, then tap **Download tidied GPX** (or **Share…** on phones that support it).
+3. Wait for matching to finish, check the map, then tap **Download tidied file** (or **Share to Strava…** on phones that support it).
 4. Upload the tidied file at <https://www.strava.com/upload/select>.
 
 Notes:
@@ -50,11 +50,25 @@ Notes:
 - Strava may flag the upload as a duplicate of the original. Delete the original activity first if you want to replace it, or keep it and accept the duplicate warning.
 - Cadence is not included in Strava's GPX export, so a re-uploaded activity will not have cadence data. Heart rate and timestamps are preserved.
 
+## Using it from Google Health (Android)
+
+1. Install Strava Tidy from Chrome (menu, Add to Home screen / Install app). Android only offers an app as a share target once it is installed.
+2. In Google Health, open the run and use Export. Choose the TCX file (`exercise_tcx_file.tcx`) and pick **Strava Tidy** in the share sheet.
+3. The app opens and tidies the track automatically. Review the map.
+4. Tap **Share to Strava…** and choose the Strava app, or tap **Download tidied file** and upload it at <https://www.strava.com/upload/select>.
+5. If the original activity already synced to Strava, delete it first. Otherwise Strava treats the upload as a duplicate.
+
+Honest limits:
+
+- Share target and share-out behaviour depend on Android and Chrome, and on the Strava app accepting a TCX file shared from another app. If it does not, use the download and the Strava website upload page.
+- Fully automatic upload to Strava is not possible from a static site: Strava's API needs a client secret and a server.
+- TCX distances are recalculated from the tidied path; other fields are left as they were.
+
 ## Known limits
 
 - Needs an internet connection to download map data (previously used areas are cached for 30 days). The public Overpass servers are sometimes overloaded, which is why the OSM API is used as a fallback; very large areas may be refused by the OSM API.
 - Quality depends on OpenStreetMap coverage. Missing paths cause those stretches to stay unsnapped.
-- The GPX must contain a timestamp on every trackpoint.
+- The GPX or TCX must contain a timestamp on every trackpoint.
 - Very long activities are processed on-device and can take a while on older phones.
 - The orange "left unchanged" dots on the map are inferred from points whose position did not move.
 - Map tiles come from the public OpenStreetMap tile server and are subject to its usage policy; they are not cached for offline use.

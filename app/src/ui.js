@@ -1,6 +1,6 @@
 // Main-thread UI: file intake, worker orchestration, result rendering.
-import { parseGpx } from './gpx.js';
-import { formatPace, formatKm, formatMeters, formatDelta, tidiedFileName } from './format.js';
+import { formatPace, formatKm, formatMeters, formatDelta } from './format.js';
+import { outputFileName, pickShareFile, parseSharedFlag } from './share.js';
 import { showTracks, invalidateMap } from './map-view.js';
 
 const $ = (id) => document.getElementById(id);
@@ -9,8 +9,8 @@ const focusTargets = { start: 'choose-btn', progress: 'progress-title', error: '
 
 let worker = null;
 let runToken = 0; // lets us ignore messages from a cancelled main-thread fallback run
-let lastJob = null; // { name, gpxText, rename } for Retry
-let current = null; // { fileName, outputText } for download/share
+let lastJob = null; // { name, text, rename } for Retry
+let current = null; // { fileName, outputText, mimeType, shareFile } for download/share
 
 function show(name) {
   for (const [key, el] of Object.entries(panels)) el.hidden = key !== name;
@@ -40,14 +40,14 @@ function onStage(text) {
 
 async function handleFile(file) {
   if (!file) return;
-  let gpxText;
+  let text;
   try {
-    gpxText = await file.text();
+    text = await file.text();
   } catch {
     showError('That file could not be read. Please choose it again.');
     return;
   }
-  startJob({ name: file.name, gpxText, rename: $('rename-opt').checked });
+  startJob({ name: file.name, text, rename: $('rename-opt').checked });
 }
 
 function startJob(job) {
@@ -72,7 +72,7 @@ function startJob(job) {
     }
   };
 
-  const payload = { gpxText: job.gpxText, rename: job.rename };
+  const payload = { text: job.text, rename: job.rename };
   try {
     worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
     worker.onmessage = (ev) => handle(ev.data);
@@ -89,14 +89,16 @@ function startJob(job) {
   }
 }
 
-function finish(job, { outputText, summary }) {
+function finish(job, msg) {
   if (worker) { worker.terminate(); worker = null; }
+  const { outputText, summary, format, extension, mimeType, rawPoints, tidiedPoints } = msg;
   try {
-    current = { fileName: tidiedFileName(job.name), outputText };
+    current = { fileName: outputFileName(job.name, extension), outputText, mimeType };
+    $('tcx-note').hidden = format !== 'tcx';
     renderSummary(summary);
     renderSplits(summary.splits);
     show('result');
-    renderMap(job.gpxText, outputText);
+    renderMap(rawPoints, tidiedPoints);
     setupShare();
   } catch (e) {
     showError('The result could not be displayed: ' + (e && e.message ? e.message : e));
@@ -146,32 +148,20 @@ function renderSplits(splits) {
   }
 }
 
-const flatPoints = (text) => parseGpx(text).tracks.flatMap((t) => t.segments.flatMap((s) => s.points))
-  .sort((a, b) => a.index - b.index);
-
-function renderMap(inputText, outputText) {
-  const raw = flatPoints(inputText);
-  const tidy = flatPoints(outputText);
-  // The summary has no per-point flags; a point whose position did not move is one the matcher left alone.
-  const off = [];
-  tidy.forEach((p, i) => {
-    if (Math.abs(p.lat - raw[i].lat) < 2e-7 && Math.abs(p.lon - raw[i].lon) < 2e-7) off.push([p.lat, p.lon]);
-  });
-  showTracks($('map'), raw.map((p) => [p.lat, p.lon]), tidy.map((p) => [p.lat, p.lon]), off);
-}
-
-function gpxFile() {
-  return new File([current.outputText], current.fileName, { type: 'application/gpx+xml' });
+function renderMap(rawPoints, tidiedPoints) {
+  const off = tidiedPoints.filter((p) => !p.onNetwork).map((p) => [p.lat, p.lon]);
+  showTracks($('map'), rawPoints.map((p) => [p.lat, p.lon]), tidiedPoints.map((p) => [p.lat, p.lon]), off);
 }
 
 function setupShare() {
-  let ok = false;
-  try { ok = !!(navigator.canShare && navigator.canShare({ files: [gpxFile()] })); } catch { ok = false; }
-  $('share-btn').hidden = !ok;
+  let file = null;
+  try { file = pickShareFile(current.outputText, current.fileName, current.mimeType, navigator); } catch { file = null; }
+  current.shareFile = file;
+  $('share-btn').hidden = !file;
 }
 
 function download() {
-  const url = URL.createObjectURL(new Blob([current.outputText], { type: 'application/gpx+xml' }));
+  const url = URL.createObjectURL(new Blob([current.outputText], { type: current.mimeType }));
   const a = document.createElement('a');
   a.href = url;
   a.download = current.fileName;
@@ -182,11 +172,45 @@ function download() {
 }
 
 async function share() {
+  if (!current || !current.shareFile) return;
   try {
-    await navigator.share({ files: [gpxFile()], title: current.fileName });
+    await navigator.share({ files: [current.shareFile], title: current.fileName });
   } catch (e) {
-    if (e && e.name !== 'AbortError') showError('Sharing failed: ' + e.message);
+    if (e && e.name !== 'AbortError') showError('Sharing failed: ' + (e && e.message ? e.message : e));
   }
+}
+
+const SHARED_CACHE = 'strava-tidy-shared';
+const TIP_KEY = 'strava-tidy-tip-dismissed';
+
+/** Picks up the file the service worker stored from a Web Share Target POST, then starts the job. */
+async function loadSharedFile() {
+  history.replaceState(null, '', location.pathname + location.hash);
+  const missing = "The shared file didn't arrive. Try again or choose it manually.";
+  let file = null;
+  try {
+    const cache = await caches.open(SHARED_CACHE);
+    const key = new URL('shared-file', document.baseURI).href;
+    const res = await cache.match(key);
+    if (res) {
+      let name = 'activity';
+      try { name = decodeURIComponent(res.headers.get('X-Filename') || '') || name; } catch { /* keep default */ }
+      file = { name, text: await res.text() };
+      await cache.delete(key);
+    }
+  } catch { file = null; }
+  if (!file || !file.text) { showError(missing); return; }
+  startJob({ name: file.name, text: file.text, rename: $('rename-opt').checked });
+}
+
+function setupTip() {
+  let dismissed = false;
+  try { dismissed = localStorage.getItem(TIP_KEY) === '1'; } catch { /* storage unavailable */ }
+  $('install-tip').hidden = dismissed;
+  $('tip-dismiss').addEventListener('click', () => {
+    $('install-tip').hidden = true;
+    try { localStorage.setItem(TIP_KEY, '1'); } catch { /* storage unavailable */ }
+  });
 }
 
 function reset() {
@@ -208,6 +232,8 @@ function init() {
   $('download-btn').addEventListener('click', download);
   $('share-btn').addEventListener('click', share);
 
+  setupTip();
+
   const card = panels.start;
   for (const t of ['dragenter', 'dragover']) {
     card.addEventListener(t, (e) => { e.preventDefault(); card.classList.add('dragover'); });
@@ -223,6 +249,8 @@ function init() {
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
+
+  if (parseSharedFlag(location.search)) loadSharedFile();
 }
 
 init();

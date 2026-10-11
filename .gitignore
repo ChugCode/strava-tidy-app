@@ -6,3 +6,4 @@ app/test/fixtures/
 prototype/compare_*.html
 prototype/report_*.txt
 *.gpx
+*.tcx

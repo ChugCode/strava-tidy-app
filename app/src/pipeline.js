@@ -1,5 +1,6 @@
-// End-to-end: GPX text + ways provider -> tidied GPX text + summary.
+// End-to-end: GPX/TCX text + ways provider -> tidied text + summary.
 import { parseGpx, rewriteGpxPositions, renameTrack } from './gpx.js';
+import { parseTcx, applyTidiedPositionsToTcx } from './tcx.js';
 import { bboxForTrack, tileBbox, mergeWays } from './osm.js';
 import { matchTrack, DEFAULTS } from './matcher.js';
 import { summarize } from './report.js';
@@ -25,15 +26,35 @@ function coverage(points, ways) {
   return inside.length / points.length;
 }
 
+const FORMATS = {
+  gpx: { extension: '.gpx', mimeType: 'application/gpx+xml' },
+  tcx: { extension: '.tcx', mimeType: 'application/vnd.garmin.tcx+xml' },
+};
+
+/** Returns 'tcx' or 'gpx', or throws if the text is neither. */
+export function sniffFormat(text) {
+  if (/<(?:[\w.-]+:)?TrainingCenterDatabase\b/.test(text)) return 'tcx';
+  if (/<(?:[\w.-]+:)?gpx\b/.test(text)) return 'gpx';
+  throw new Error('Unrecognised file. Expected a .gpx or .tcx activity.');
+}
+
+/** GPX-only entry point kept for compatibility; same result shape as tidyActivity. */
+export function tidyGpx(gpxText, waysProvider, options = {}) {
+  return tidyActivity(gpxText, waysProvider, options);
+}
+
 /**
  * waysProvider: async (bbox) => ways, called once per tile cell.
- * options: { onProgress(fraction), rename (append " (tidied)" to the track name) }
+ * options: { onProgress(fraction), rename (GPX only: append " (tidied)" to the track name) }
+ * Returns { outputText, summary, format, extension, mimeType, rawPoints, tidiedPoints }; the point
+ * arrays cover the positioned points in file order.
  */
-export async function tidyGpx(gpxText, waysProvider, options = {}) {
+export async function tidyActivity(text, waysProvider, options = {}) {
   const { onProgress, rename = false } = options;
   const report = (f) => { if (onProgress) onProgress(Math.min(1, f)); };
-  const gpx = parseGpx(gpxText);
-  const segments = gpx.tracks.flatMap((t) => t.segments).filter((s) => s.points.length > 0);
+  const format = sniffFormat(text);
+  const parsed = format === 'tcx' ? parseTcx(text) : parseGpx(text);
+  const segments = parsed.tracks.flatMap((t) => t.segments).filter((s) => s.points.length > 0);
   const allPoints = segments.flatMap((s) => s.points);
 
   const cells = tileBbox(bboxForTrack(allPoints, MARGIN_M), 0.02, allPoints, MARGIN_M);
@@ -63,14 +84,24 @@ export async function tidyGpx(gpxText, waysProvider, options = {}) {
     done += seg.points.length;
   }
 
-  // Positions follow document order, which is the order parseGpx numbered points.
-  const flatLatLons = [];
-  const byIndex = new Array(gpx.pointCount);
-  allPoints.forEach((p, i) => { byIndex[p.index] = positions[i]; });
-  for (const p of byIndex) flatLatLons.push([p.lat, p.lon]);
+  // Positions follow document order, which is the order the parsers numbered points.
+  const rawPoints = new Array(parsed.pointCount);
+  const tidiedPoints = new Array(parsed.pointCount);
+  allPoints.forEach((p, i) => {
+    rawPoints[p.index] = { lat: p.lat, lon: p.lon };
+    tidiedPoints[p.index] = { lat: positions[i].lat, lon: positions[i].lon, onNetwork: positions[i].onNetwork };
+  });
+  const flatLatLons = tidiedPoints.map((p) => [p.lat, p.lon]);
 
-  let outputText = rewriteGpxPositions(gpxText, flatLatLons);
-  if (rename) outputText = renameTrack(outputText);
+  let outputText;
+  if (format === 'tcx') {
+    outputText = applyTidiedPositionsToTcx(text, flatLatLons);
+  } else {
+    outputText = rewriteGpxPositions(text, flatLatLons);
+    if (rename) outputText = renameTrack(outputText);
+  }
   report(1);
-  return { outputText, summary: summarize(allPoints, positions) };
+  return {
+    outputText, summary: summarize(allPoints, positions), format, ...FORMATS[format], rawPoints, tidiedPoints,
+  };
 }
